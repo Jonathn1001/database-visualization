@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -172,6 +173,20 @@ func (a *api) listSchemas(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"schemas": schemas})
 }
 
+// decodeNodeID returns the {nodeId} path param with percent-escapes decoded.
+// The frontend encodes the schema/table separator dot as %2E (§11.1), but Go's
+// net/http does not decode %2E in request paths, so chi yields the literal
+// "public%2Eusers" — decode it here so it becomes "public.users". Falls back to
+// the raw value when it is not valid percent-encoding.
+func decodeNodeID(r *http.Request) string { return unescapeNodeID(chi.URLParam(r, "nodeId")) }
+
+func unescapeNodeID(raw string) string {
+	if dec, err := url.PathUnescape(raw); err == nil {
+		return dec
+	}
+	return raw
+}
+
 func (a *api) sampleData(w http.ResponseWriter, r *http.Request) {
 	mc, err := a.mgr.Get(chi.URLParam(r, "id"))
 	if err != nil {
@@ -184,7 +199,7 @@ func (a *api) sampleData(w http.ResponseWriter, r *http.Request) {
 			limit = n
 		}
 	}
-	nodeID := chi.URLParam(r, "nodeId")
+	nodeID := decodeNodeID(r)
 	start := time.Now()
 	rows, err := mc.Adapter.SampleData(r.Context(), nodeID, limit)
 	a.rec(mc, audit.OpSample, "SELECT * FROM "+nodeID+" LIMIT $1", start, len(rows), err)
@@ -200,6 +215,9 @@ func (a *api) sampleData(w http.ResponseWriter, r *http.Request) {
 	} else {
 		rows = security.MaskRows(rows)
 	}
+	if rows == nil {
+		rows = []map[string]any{} // never serialize null; the frontend expects an array
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"rows": rows, "masked": masked})
 }
 
@@ -209,7 +227,7 @@ func (a *api) tableStats(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err)
 		return
 	}
-	nodeID := chi.URLParam(r, "nodeId")
+	nodeID := decodeNodeID(r)
 	start := time.Now()
 	stats, err := mc.Adapter.TableStats(r.Context(), nodeID)
 	a.rec(mc, audit.OpStats, "pg_stat_user_tables "+nodeID, start, 0, err)
@@ -240,7 +258,7 @@ func (a *api) simulateCascade(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err)
 		return
 	}
-	res := simulate.Cascade(g, chi.URLParam(r, "nodeId"))
+	res := simulate.Cascade(g, decodeNodeID(r))
 	writeJSON(w, http.StatusOK, res)
 }
 

@@ -35,8 +35,10 @@ export function SampleDataView({
   });
 
   const data = query.data;
-  const columns =
-    data && data.rows.length > 0 ? Object.keys(data.rows[0]) : [];
+  // rows can be null when the backend returns an empty result for a 0-row table;
+  // guard so an empty table renders "No rows" instead of crashing on .length.
+  const rows = data?.rows ?? [];
+  const columns = rows.length > 0 ? Object.keys(rows[0]) : [];
 
   return (
     <section className="border-t border-black/10 px-3 py-3 dark:border-white/10">
@@ -75,11 +77,11 @@ export function SampleDataView({
         </div>
       )}
 
-      {data && data.rows.length === 0 && (
+      {data && rows.length === 0 && (
         <div className="py-4 text-xs text-neutral-500">No rows.</div>
       )}
 
-      {data && data.rows.length > 0 && (
+      {data && rows.length > 0 && (
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-left text-xs">
             <thead>
@@ -95,7 +97,7 @@ export function SampleDataView({
               </tr>
             </thead>
             <tbody>
-              {data.rows.map((row, i) => (
+              {rows.map((row, i) => (
                 <tr
                   key={i}
                   className="border-b border-black/5 last:border-0 dark:border-white/5"
