@@ -244,6 +244,56 @@ func (a *api) simulateCascade(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, res)
 }
 
+func (a *api) simulateCRUD(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Operation string `json:"operation"`
+		NodeID    string `json:"nodeId"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, model.NewAPIError(model.ErrBadRequest, "invalid request body"))
+		return
+	}
+	switch body.Operation {
+	case simulate.ActionInsert, simulate.ActionUpdate, simulate.ActionDelete:
+	default:
+		writeError(w, model.NewAPIError(model.ErrBadRequest, "operation must be one of insert, update, delete"))
+		return
+	}
+	mc, err := a.mgr.Get(chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	start := time.Now()
+	g, err := mc.Adapter.Introspect(r.Context(), adapter.IntrospectOptions{
+		MaxNodes:  maxNodesFromEnv(),
+		SkipStats: true,
+	})
+	nodeCount := 0
+	if g != nil {
+		nodeCount = g.Stats.NodeCount
+	}
+	a.rec(mc, audit.OpIntrospect, "introspect for crud flow", start, nodeCount, err)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	res := simulate.CrudFlow(g, body.NodeID, body.Operation)
+	writeJSON(w, http.StatusOK, res)
+}
+
+func (a *api) listDockerContainers(w http.ResponseWriter, r *http.Request) {
+	list, err := connection.ListDBContainers(r.Context())
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	if list == nil {
+		list = []connection.DockerContainer{}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"containers": list})
+}
+
 func (a *api) explain(w http.ResponseWriter, r *http.Request) {
 	mc, err := a.mgr.Get(chi.URLParam(r, "id"))
 	if err != nil {

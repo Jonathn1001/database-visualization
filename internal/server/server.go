@@ -116,6 +116,7 @@ func NewRouter(cfg Config, log *slog.Logger, mgr *connection.Manager, auditLog a
 	r.Route("/api", func(r chi.Router) {
 		r.Get("/health", handleHealth)
 		r.Get("/version", handleVersion(cfg.Version))
+		r.Get("/docker/containers", a.listDockerContainers)
 
 		r.Route("/connections", func(r chi.Router) {
 			r.Post("/", a.createConnection)
@@ -134,6 +135,7 @@ func NewRouter(cfg Config, log *slog.Logger, mgr *connection.Manager, auditLog a
 				r.Get("/tables/{nodeId}/stats", a.tableStats)
 
 				r.With(timeout(introspectTimeout)).Get("/simulate/cascade/{nodeId}", a.simulateCascade)
+				r.With(timeout(introspectTimeout)).Post("/simulate/crud", a.simulateCRUD)
 				r.With(timeout(explainTimeout)).Post("/explain", a.explain)
 			})
 		})

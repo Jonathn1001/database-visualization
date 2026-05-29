@@ -1,3 +1,7 @@
+/* Inter via the bunny.net CDN (privacy-friendly Google Fonts mirror). If the
+   network is unavailable the Tailwind system-ui fallback still applies. */
+@import url('https://fonts.bunny.net/css?family=inter:400,500,600,700');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -6,7 +10,23 @@
   color-scheme: light dark;
 }
 
+html,
+body,
+#root {
+  height: 100%;
+}
+
 body {
   margin: 0;
   font-family: theme('fontFamily.sans');
+  /* Base canvas background (DESIGN_PLAN §13.4). */
+  background-color: theme('colors.canvas.light');
+  color: #1a1a1a;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background-color: theme('colors.canvas.dark');
+    color: #e8e8e8;
+  }
 }
