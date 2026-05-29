@@ -1,0 +1,28 @@
+# Go
+/.air-tmp/
+/dist/
+*.test
+*.out
+
+# Frontend
+/web/node_modules/
+*.tsbuildinfo
+
+# Embedded frontend build output (Vite writes here; embed.FS reads it).
+# Keep the dir + placeholder so `go build` compiles without a frontend build.
+/internal/server/dist/*
+!/internal/server/dist/.gitkeep
+
+# Env / secrets (never commit per project policy)
+.env
+.env.*
+*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+*.swp
+
+docs

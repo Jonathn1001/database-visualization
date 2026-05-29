@@ -1,0 +1,9 @@
+root = "."
+tmp_dir = ".air-tmp"
+
+[build]
+cmd = "go build -tags dev -o ./.air-tmp/dbviz ./main.go"
+bin = "./.air-tmp/dbviz serve"
+include_ext = ["go"]
+exclude_dir = ["web", ".air-tmp", "testdata", "docs", "internal/server/dist"]
+delay = 500
