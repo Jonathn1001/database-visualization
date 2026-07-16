@@ -64,6 +64,17 @@ describe('severityRank / sortFindings', () => {
     expect(sortFindings(fs, 'severity')[0].severity).toBe('critical');
     expect(sortFindings(fs, 'table')[0].nodeId).toBe('public.a');
   });
+
+  it('table mode sorts by node then breaks ties by severity', () => {
+    const fs = [
+      finding({ severity: 'critical', nodeId: 'public.z' }),
+      finding({ severity: 'info', nodeId: 'public.a' }),
+      finding({ severity: 'warn', nodeId: 'public.a' }),
+    ];
+    const sorted = sortFindings(fs, 'table');
+    expect(sorted.map((f) => f.nodeId)).toEqual(['public.a', 'public.a', 'public.z']);
+    expect(sorted.map((f) => f.severity)).toEqual(['warn', 'info', 'critical']);
+  });
 });
 
 describe('impliedLinks', () => {
@@ -98,6 +109,10 @@ describe('mergeImpliedLinks', () => {
       link({ target: 'public.ghost' }), // unknown endpoint -> dropped
     ]);
     expect(merged.links).toHaveLength(1);
+  });
+
+  it('returns input graph unchanged when nothing merges', () => {
+    expect(mergeImpliedLinks(graph, [])).toBe(graph);
   });
 });
 
