@@ -62,6 +62,18 @@ CREATE TABLE payments (
 );
 CREATE INDEX idx_payments_status ON payments(status);
 
+-- audit_logs deliberately has NO foreign key on user_id: it exercises the
+-- relationship-gaps heuristic (pg-insights spec).
+CREATE TABLE audit_logs (
+    id UUID PRIMARY KEY,
+    user_id UUID NOT NULL,
+    action VARCHAR(100),
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Deliberate exact duplicate of idx_users_email: exercises duplicate-index detection.
+CREATE INDEX idx_users_email_dup ON users(email);
+
 -- Seed rows so sample-data and PII-masking behavior can be exercised.
 INSERT INTO users (id, email, name) VALUES
     (gen_random_uuid(), 'alice@example.com', 'Alice'),

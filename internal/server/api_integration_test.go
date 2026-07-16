@@ -92,7 +92,7 @@ func TestAPIEndToEnd(t *testing.T) {
 		require.Equal(t, http.StatusOK, res.StatusCode)
 		var g model.GraphModel
 		require.NoError(t, json.NewDecoder(res.Body).Decode(&g))
-		assert.Equal(t, 8, g.Stats.NodeCount)
+		assert.Equal(t, 9, g.Stats.NodeCount)
 		assert.GreaterOrEqual(t, g.Stats.LinkCount, 9)
 	})
 

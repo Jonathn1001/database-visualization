@@ -57,7 +57,7 @@ func TestPostgresConformance(t *testing.T) {
 	conformance.RunSuite(t, func() adapter.IDatabaseAdapter { return &Adapter{} }, conformance.Options{
 		Config:       model.ConnectionConfig{Engine: "postgres", DSN: readerDSN},
 		ExplainQuery: "SELECT u.name, o.total FROM users u JOIN orders o ON o.user_id = u.id",
-		MinNodes:     8,
+		MinNodes:     9,
 		AttemptWrite: func(ctx context.Context, a adapter.IDatabaseAdapter) error {
 			pa := a.(*Adapter)
 			_, err := pa.pool.Exec(ctx,
@@ -81,7 +81,7 @@ func TestPostgresIntrospectShape(t *testing.T) {
 	g, err := a.Introspect(ctx, adapter.IntrospectOptions{})
 	require.NoError(t, err)
 
-	assert.Equal(t, 8, g.Stats.NodeCount, "ecommerce fixture has 8 tables")
+	assert.Equal(t, 9, g.Stats.NodeCount, "ecommerce fixture has 9 tables")
 	assert.GreaterOrEqual(t, g.Stats.LinkCount, 9, "fixture has >= 9 FK links")
 	assert.GreaterOrEqual(t, g.Stats.CascadeChainDepth, 2)
 
@@ -117,7 +117,7 @@ func TestPostgresIntrospectShape(t *testing.T) {
 			}
 		}
 	}
-	assert.Equal(t, 8, pkTotal, "all 8 fixture tables have a single-column PK")
+	assert.Equal(t, 9, pkTotal, "all 9 fixture tables have a single-column PK")
 }
 
 func TestPostgresExplainPath(t *testing.T) {
