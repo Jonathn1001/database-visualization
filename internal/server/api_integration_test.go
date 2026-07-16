@@ -21,6 +21,7 @@ import (
 
 	"github.com/elgnas/dbviz/internal/audit"
 	"github.com/elgnas/dbviz/internal/connection"
+	"github.com/elgnas/dbviz/internal/insights"
 	"github.com/elgnas/dbviz/internal/model"
 	"github.com/elgnas/dbviz/internal/simulate"
 
@@ -201,4 +202,81 @@ func TestAPIEndToEnd(t *testing.T) {
 		defer res.Body.Close()
 		assert.Equal(t, http.StatusNoContent, res.StatusCode)
 	})
+}
+
+func TestInsightsEndpoint(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration test; skipped in -short mode")
+	}
+	readerDSN := startPostgresReaderDSN(t)
+
+	router := NewRouter(Config{Dev: true}, nil, connection.NewManager(connection.Config{}, nil), audit.Nop{})
+	srv := httptest.NewServer(router)
+	defer srv.Close()
+
+	// Create a connection.
+	body, _ := json.Marshal(model.ConnectionConfig{DSN: readerDSN})
+	res, err := http.Post(srv.URL+"/api/connections", "application/json", bytes.NewReader(body))
+	require.NoError(t, err)
+	var meta connMeta
+	require.NoError(t, json.NewDecoder(res.Body).Decode(&meta))
+	res.Body.Close()
+
+	// All categories.
+	res, err = http.Get(srv.URL + "/api/connections/" + meta.ID + "/insights")
+	require.NoError(t, err)
+	defer res.Body.Close()
+	require.Equal(t, http.StatusOK, res.StatusCode)
+
+	var result insights.Result
+	require.NoError(t, json.NewDecoder(res.Body).Decode(&result))
+	require.Len(t, result.Categories, 3)
+
+	byCat := map[string]insights.CategoryResult{}
+	for _, c := range result.Categories {
+		byCat[c.Category] = c
+		assert.Equal(t, insights.StatusOK, c.Status, "postgres supports all categories")
+		assert.NotNil(t, c.Findings)
+	}
+
+	// Gaps: audit_logs.user_id -> public.users, with a matching implied link.
+	var gapFound bool
+	for _, f := range byCat[insights.CategoryGaps].Findings {
+		if f.NodeID == "public.audit_logs" && f.Meta["column"] == "user_id" {
+			gapFound = true
+			assert.Equal(t, "public.users", f.Meta["targetNodeId"])
+		}
+	}
+	assert.True(t, gapFound, "expected gap finding for audit_logs.user_id")
+	assert.NotEmpty(t, byCat[insights.CategoryGaps].ImpliedLinks)
+
+	// Index: the seeded duplicate index is detected.
+	var dupFound bool
+	for _, f := range byCat[insights.CategoryIndex].Findings {
+		if f.Title == "Duplicate index" && f.NodeID == "public.users" {
+			dupFound = true
+		}
+	}
+	assert.True(t, dupFound, "expected duplicate-index finding for users(email)")
+
+	// Category filter.
+	res2, err := http.Get(srv.URL + "/api/connections/" + meta.ID + "/insights?category=gaps")
+	require.NoError(t, err)
+	defer res2.Body.Close()
+	var filtered insights.Result
+	require.NoError(t, json.NewDecoder(res2.Body).Decode(&filtered))
+	require.Len(t, filtered.Categories, 1)
+	assert.Equal(t, insights.CategoryGaps, filtered.Categories[0].Category)
+
+	// Invalid category -> 400 BAD_REQUEST.
+	res3, err := http.Get(srv.URL + "/api/connections/" + meta.ID + "/insights?category=bogus")
+	require.NoError(t, err)
+	defer res3.Body.Close()
+	assert.Equal(t, http.StatusBadRequest, res3.StatusCode)
+
+	// Unknown connection -> 404.
+	res4, err := http.Get(srv.URL + "/api/connections/nope/insights")
+	require.NoError(t, err)
+	defer res4.Body.Close()
+	assert.Equal(t, http.StatusNotFound, res4.StatusCode)
 }
