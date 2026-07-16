@@ -9,7 +9,7 @@ import { select, type Selection } from 'd3-selection';
 
 import type { Node } from '@/types/graph';
 import { FORCE } from '@/lib/constants';
-import { nodeFill, palette } from '@/lib/colors';
+import { nodeFill, palette, severityColor } from '@/lib/colors';
 import type { SimNode, SimRefs } from './useForceSimulation';
 
 const { nodeRadiusMin, nodeRadiusMax } = FORCE;
@@ -181,6 +181,39 @@ export function setNodeOpacity(
 ): void {
   group.style('transition', `opacity ${Math.max(0, durationMs)}ms ease`);
   group.style('opacity', opacity);
+}
+
+/**
+ * renderSeverityBadges draws (or removes) a small severity dot at the
+ * top-left of each node circle — the insights overlay. Badges live inside
+ * the node <g>, so they track the node on every tick for free. Idempotent:
+ * calling with an empty map removes all badges.
+ */
+export function renderSeverityBadges(
+  refs: SimRefs,
+  severityByNode: Map<string, 'info' | 'warn' | 'critical'>,
+): void {
+  refs.nodeLayer
+    .selectAll<SVGGElement, SimNode>('g.dbviz-node')
+    .each(function (d) {
+      const group = select(this);
+      const severity = severityByNode.get(d.id);
+      const existing = group.select<SVGCircleElement>('circle.dbviz-node-sev');
+      if (!severity) {
+        existing.remove();
+        return;
+      }
+      const badge = existing.empty()
+        ? group.append('circle').attr('class', 'dbviz-node-sev')
+        : existing;
+      badge
+        .attr('r', 3.4)
+        .attr('cx', (-d.radius) * 0.7)
+        .attr('cy', (-d.radius) * 0.7)
+        .attr('fill', severityColor(severity))
+        .attr('stroke', 'none')
+        .attr('opacity', 0.95);
+    });
 }
 
 // Re-exported so other modules can grab the raw d3 select if needed without a

@@ -16,12 +16,14 @@ import {
   GitBranch,
   Route,
   MousePointerClick,
+  Lightbulb,
 } from 'lucide-react';
 
 import * as simulate from '@/api/simulate';
 import { APIError } from '@/api/client';
 import { useGraphStore } from '@/store/graph';
 import { useSelectionStore } from '@/store/selection';
+import { useInsightsStore } from '@/store/insights';
 import { QueryPathInput } from './QueryPathInput';
 import type {
   GraphModel,
@@ -38,6 +40,9 @@ export function ActionBar({ connId, graph }: { connId: string; graph: GraphModel
 
   const animator = useGraphStore((s) => s.animator);
   const selectedNodeId = useSelectionStore((s) => s.selectedNodeId);
+  const overlay = useInsightsStore((s) => s.overlay);
+  const setOverlay = useInsightsStore((s) => s.setOverlay);
+  const hasInsights = useInsightsStore((s) => s.result !== null);
 
   const selectedNode = selectedNodeId
     ? graph.nodes.find((n) => n.id === selectedNodeId)
@@ -128,6 +133,25 @@ export function ActionBar({ connId, graph }: { connId: string; graph: GraphModel
           icon={<Route size={13} />}
           label="Query Path"
         />
+        <button
+          type="button"
+          disabled={!hasInsights}
+          onClick={() => setOverlay(!overlay)}
+          title={
+            hasInsights
+              ? 'Toggle insight badges + implied-FK edges on the graph'
+              : 'Open the Insights panel first'
+          }
+          className={
+            'inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ' +
+            (overlay
+              ? 'bg-black/10 text-neutral-900 dark:bg-white/15 dark:text-neutral-100'
+              : 'text-neutral-500 hover:bg-black/5 dark:hover:bg-white/5')
+          }
+        >
+          <Lightbulb size={13} />
+          Insights
+        </button>
         <div className="ml-auto flex items-center gap-1.5 text-[11px] text-neutral-500">
           <MousePointerClick size={12} />
           {selectedLabel ? (

@@ -1,7 +1,7 @@
 // App shell: wires providers, the desktop gate, and the connect -> workspace
 // flow against the frozen component stubs (DESIGN_PLAN §13). Feature agents fill
 // in the component bodies; this shell composition stays stable.
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
 import { X } from 'lucide-react';
@@ -17,6 +17,7 @@ import { ConnectionStatus } from '@/components/ConnectionStatus';
 
 import { useConnectionStore } from '@/store/connection';
 import { useInsightsStore } from '@/store/insights';
+import { impliedLinks, mergeImpliedLinks } from '@/lib/insights';
 import * as schemaApi from '@/api/schema';
 import type { ConnMeta, GraphModel, Warning } from '@/types/graph';
 
@@ -85,6 +86,17 @@ function Workspace({ conn }: { conn: ConnMeta }) {
     queryFn: () => schemaApi.getSchema(conn.id, schemas.length > 0 ? schemas : undefined),
   });
 
+  const insightsResult = useInsightsStore((s) => s.result);
+  const overlay = useInsightsStore((s) => s.overlay);
+
+  // With the overlay on, gap candidates are appended as inferred links — the
+  // existing dashed renderer picks them up via link.inferred (§2.3 contract).
+  const displayGraph = useMemo(() => {
+    if (!graphQuery.data) return undefined;
+    if (!overlay) return graphQuery.data;
+    return mergeImpliedLinks(graphQuery.data, impliedLinks(insightsResult));
+  }, [graphQuery.data, overlay, insightsResult]);
+
   return (
     <div className="flex h-screen flex-col bg-canvas-light text-neutral-900 dark:bg-canvas-dark dark:text-neutral-100">
       {/* Top bar */}
@@ -136,7 +148,7 @@ function Workspace({ conn }: { conn: ConnMeta }) {
               Failed to load schema.
             </div>
           )}
-          {graphQuery.data && <GraphCanvas graph={graphQuery.data} />}
+          {displayGraph && <GraphCanvas graph={displayGraph} />}
         </main>
 
         <aside className="flex w-80 shrink-0 flex-col overflow-hidden border-l border-black/10 dark:border-white/10">
