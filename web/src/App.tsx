@@ -1,7 +1,7 @@
 // App shell: wires providers, the desktop gate, and the connect -> workspace
 // flow against the frozen component stubs (DESIGN_PLAN §13). Feature agents fill
 // in the component bodies; this shell composition stays stable.
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
 import { X } from 'lucide-react';
@@ -10,11 +10,13 @@ import DesktopOnlyGate from '@/components/DesktopOnlyGate';
 import { ConnectionWizard } from '@/components/ConnectionWizard';
 import { GraphCanvas } from '@/components/Graph/GraphCanvas';
 import { TableInspector } from '@/components/Inspector/TableInspector';
+import { InsightsPanel } from '@/components/InsightsPanel';
 import { ActionBar } from '@/components/ActionBar';
 import { SchemaPicker } from '@/components/SchemaPicker';
 import { ConnectionStatus } from '@/components/ConnectionStatus';
 
 import { useConnectionStore } from '@/store/connection';
+import { useInsightsStore } from '@/store/insights';
 import * as schemaApi from '@/api/schema';
 import type { ConnMeta, GraphModel, Warning } from '@/types/graph';
 
@@ -63,6 +65,13 @@ function Workspace({ conn }: { conn: ConnMeta }) {
   const setSchemas = useConnectionStore((s) => s.setSchemas);
   const clearConn = useConnectionStore((s) => s.clearConn);
   const [dismissedWarnings, setDismissedWarnings] = useState<Set<string>>(new Set());
+  const [sideTab, setSideTab] = useState<'inspector' | 'insights'>('inspector');
+
+  // Insights are per-connection: drop stale results + overlay when it changes.
+  useEffect(() => {
+    useInsightsStore.getState().clear();
+    setSideTab('inspector');
+  }, [conn.id]);
 
   // Available schemas for the picker.
   const schemasQuery = useQuery({
@@ -130,10 +139,27 @@ function Workspace({ conn }: { conn: ConnMeta }) {
           {graphQuery.data && <GraphCanvas graph={graphQuery.data} />}
         </main>
 
-        <aside className="w-80 shrink-0 overflow-auto border-l border-black/10 dark:border-white/10">
-          {graphQuery.data && (
-            <TableInspector connId={conn.id} graph={graphQuery.data} />
-          )}
+        <aside className="flex w-80 shrink-0 flex-col overflow-hidden border-l border-black/10 dark:border-white/10">
+          <div className="flex shrink-0 gap-1 border-b border-black/10 px-2 py-1.5 dark:border-white/10">
+            <SideTabButton
+              active={sideTab === 'inspector'}
+              onClick={() => setSideTab('inspector')}
+              label="Inspector"
+            />
+            <SideTabButton
+              active={sideTab === 'insights'}
+              onClick={() => setSideTab('insights')}
+              label="Insights"
+            />
+          </div>
+          <div className="min-h-0 flex-1 overflow-auto">
+            {graphQuery.data &&
+              (sideTab === 'inspector' ? (
+                <TableInspector connId={conn.id} graph={graphQuery.data} />
+              ) : (
+                <InsightsPanel connId={conn.id} graph={graphQuery.data} />
+              ))}
+          </div>
         </aside>
       </div>
 
@@ -142,6 +168,31 @@ function Workspace({ conn }: { conn: ConnMeta }) {
         {graphQuery.data && <ActionBar connId={conn.id} graph={graphQuery.data} />}
       </footer>
     </div>
+  );
+}
+
+function SideTabButton({
+  active,
+  onClick,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={
+        'rounded px-2.5 py-0.5 text-xs font-medium transition-colors ' +
+        (active
+          ? 'bg-black/10 text-neutral-900 dark:bg-white/15 dark:text-neutral-100'
+          : 'text-neutral-500 hover:bg-black/5 dark:hover:bg-white/5')
+      }
+    >
+      {label}
+    </button>
   );
 }
 
