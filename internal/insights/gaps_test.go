@@ -91,11 +91,114 @@ func TestRelationshipGaps(t *testing.T) {
 			t.Errorf("implied link type = %s, want 1:N", l.Type)
 		}
 	}
+
+	// Findings and links must correspond positionally: links[i] is the
+	// inferred edge for findings[i], not merely some matching edge elsewhere
+	// in the slice.
+	for i := range findings {
+		lk, fd := links[i], findings[i]
+		if lk.Target != fd.Meta["targetNodeId"] {
+			t.Errorf("index %d: link target %q != finding targetNodeId %v", i, lk.Target, fd.Meta["targetNodeId"])
+		}
+		if lk.Confidence != fd.Meta["confidence"] {
+			t.Errorf("index %d: link confidence %v != finding confidence %v", i, lk.Confidence, fd.Meta["confidence"])
+		}
+		if lk.ViaColumn != fd.Meta["column"] {
+			t.Errorf("index %d: link viaColumn %q != finding column %v", i, lk.ViaColumn, fd.Meta["column"])
+		}
+	}
 }
 
 func TestRelationshipGapsEmptyGraph(t *testing.T) {
 	findings, links := RelationshipGaps(&model.GraphModel{})
 	if len(findings) != 0 || len(links) != 0 {
 		t.Errorf("expected nothing, got %d findings, %d links", len(findings), len(links))
+	}
+}
+
+// TestRelationshipGapsSelfReferenceSkip covers a table whose own label
+// matches a column's base name (e.g. public.team.team_id): the "target" is
+// the source node itself, so no gap should be reported.
+func TestRelationshipGapsSelfReferenceSkip(t *testing.T) {
+	g := &model.GraphModel{
+		Nodes: []model.Node{
+			{ID: "public.team", Schema: "public", Label: "team", Kind: model.KindTable,
+				Columns: []model.Column{
+					{Name: "id", Type: uuidType, IsPK: true},
+					{Name: "team_id", Type: uuidType}, // self-referential name+type match — must be skipped
+				}},
+		},
+	}
+
+	findings, links := RelationshipGaps(g)
+	if len(findings) != 0 || len(links) != 0 {
+		t.Errorf("expected no findings for a self-referential column match, got %d findings, %d links: %+v",
+			len(findings), len(links), findings)
+	}
+}
+
+// TestRelationshipGapsConfidenceTieBreak covers two same-schema candidate
+// targets tied at plural-match confidence (0.75): public.parts and
+// public.partes both satisfy public.orders.part_id equally, so exactly one
+// finding must be produced, targeting the lexicographically smaller node ID
+// ("public.partes" < "public.parts", since 'e' < 's').
+func TestRelationshipGapsConfidenceTieBreak(t *testing.T) {
+	g := &model.GraphModel{
+		Nodes: []model.Node{
+			{ID: "public.parts", Schema: "public", Label: "parts", Kind: model.KindTable,
+				Columns: []model.Column{
+					{Name: "id", Type: uuidType, IsPK: true},
+				}},
+			{ID: "public.partes", Schema: "public", Label: "partes", Kind: model.KindTable,
+				Columns: []model.Column{
+					{Name: "id", Type: uuidType, IsPK: true},
+				}},
+			{ID: "public.orders", Schema: "public", Label: "orders", Kind: model.KindTable,
+				Columns: []model.Column{
+					{Name: "id", Type: uuidType, IsPK: true},
+					{Name: "part_id", Type: uuidType}, // matches two equally-confident plural targets
+				}},
+		},
+	}
+
+	findings, links := RelationshipGaps(g)
+	if len(findings) != 1 || len(links) != 1 {
+		t.Fatalf("expected exactly 1 finding for a tied-confidence column, got %d findings, %d links: %+v",
+			len(findings), len(links), findings)
+	}
+	if findings[0].Meta["confidence"] != 0.75 {
+		t.Errorf("tie-break confidence = %v, want 0.75", findings[0].Meta["confidence"])
+	}
+	if findings[0].Meta["targetNodeId"] != "public.partes" {
+		t.Errorf("tie-break target = %v, want public.partes (lexicographically smaller)", findings[0].Meta["targetNodeId"])
+	}
+	if links[0].Target != "public.partes" {
+		t.Errorf("tie-break link target = %s, want public.partes", links[0].Target)
+	}
+}
+
+// TestRelationshipGapsCrossSchemaExclusion covers a candidate target that
+// matches a column's base name and type but lives in a different schema:
+// audit.teams must not match public.events.team_id when no public.team(s)
+// table exists.
+func TestRelationshipGapsCrossSchemaExclusion(t *testing.T) {
+	g := &model.GraphModel{
+		Nodes: []model.Node{
+			{ID: "audit.teams", Schema: "audit", Label: "teams", Kind: model.KindTable,
+				Columns: []model.Column{
+					{Name: "id", Type: uuidType, IsPK: true},
+				}},
+			{ID: "public.events", Schema: "public", Label: "events", Kind: model.KindTable,
+				Columns: []model.Column{
+					{Name: "id", Type: uuidType, IsPK: true},
+					{Name: "team_id", Type: uuidType}, // matches audit.teams' shape but not its schema
+				}},
+		},
+	}
+
+	findings, links := RelationshipGaps(g)
+	if len(findings) != 0 || len(links) != 0 {
+		t.Errorf("expected no cross-schema findings, got %d findings, %d links: %+v",
+			len(findings), len(links), findings)
 	}
 }
