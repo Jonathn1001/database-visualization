@@ -67,7 +67,7 @@ func filterToGraph(stats []model.TableStats, g *model.GraphModel) []model.TableS
 	for _, n := range g.Nodes {
 		known[n.ID] = true
 	}
-	out := stats[:0]
+	out := make([]model.TableStats, 0, len(stats))
 	for _, s := range stats {
 		if known[s.NodeID] {
 			out = append(out, s)

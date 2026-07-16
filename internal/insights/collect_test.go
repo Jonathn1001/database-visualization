@@ -38,6 +38,11 @@ func TestCollectUnsupportedCapabilities(t *testing.T) {
 	if len(r.Categories) != 3 {
 		t.Fatalf("expected 3 categories, got %+v", r.Categories)
 	}
+	for i, want := range []string{CategoryIndex, CategoryHealth, CategoryGaps} {
+		if r.Categories[i].Category != want {
+			t.Errorf("category order: pos %d = %s, want %s", i, r.Categories[i].Category, want)
+		}
+	}
 	if got := catByName(r, CategoryIndex); got == nil || got.Status != StatusUnsupported {
 		t.Errorf("index category = %+v, want unsupported", got)
 	}
