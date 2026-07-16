@@ -31,7 +31,8 @@ SELECT
         ORDER BY k.ord
     )::text[] AS columns
 FROM pg_stat_user_indexes s
-JOIN pg_index i ON i.indexrelid = s.indexrelid;`
+JOIN pg_index i ON i.indexrelid = s.indexrelid
+ORDER BY s.schemaname, s.relname, s.indexrelname;`
 
 const queryAllTableStats = `
 SELECT` + tableStatsColumns + `

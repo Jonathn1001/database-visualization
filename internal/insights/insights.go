@@ -101,7 +101,7 @@ func severityRank(s string) int {
 // sortFindings orders findings by severity, then node, then title, so API
 // output is deterministic.
 func sortFindings(fs []Finding) {
-	sort.Slice(fs, func(i, j int) bool {
+	sort.SliceStable(fs, func(i, j int) bool {
 		if a, b := severityRank(fs[i].Severity), severityRank(fs[j].Severity); a != b {
 			return a < b
 		}
