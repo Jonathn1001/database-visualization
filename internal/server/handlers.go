@@ -15,6 +15,7 @@ import (
 	"github.com/elgnas/dbviz/internal/adapter"
 	"github.com/elgnas/dbviz/internal/audit"
 	"github.com/elgnas/dbviz/internal/connection"
+	"github.com/elgnas/dbviz/internal/insights"
 	"github.com/elgnas/dbviz/internal/model"
 	"github.com/elgnas/dbviz/internal/security"
 	"github.com/elgnas/dbviz/internal/simulate"
@@ -236,6 +237,38 @@ func (a *api) tableStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, stats)
+}
+
+func (a *api) getInsights(w http.ResponseWriter, r *http.Request) {
+	mc, err := a.mgr.Get(chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	start := time.Now()
+	g, err := mc.Adapter.Introspect(r.Context(), adapter.IntrospectOptions{
+		MaxNodes:  maxNodesFromEnv(),
+		SkipStats: true,
+	})
+	nodeCount := 0
+	if g != nil {
+		nodeCount = g.Stats.NodeCount
+	}
+	a.rec(mc, audit.OpIntrospect, "introspect for insights", start, nodeCount, err)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+
+	category := r.URL.Query().Get("category")
+	start = time.Now()
+	res, err := insights.Collect(r.Context(), g, mc.Adapter, category)
+	a.rec(mc, audit.OpInsights, "pg_stat_user_indexes + pg_stat_user_tables (bulk)", start, 0, err)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, res)
 }
 
 func (a *api) simulateCascade(w http.ResponseWriter, r *http.Request) {

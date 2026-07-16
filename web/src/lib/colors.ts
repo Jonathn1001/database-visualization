@@ -71,3 +71,15 @@ export function crudColor(action: 'insert' | 'update' | 'delete' | 'check'): str
       return palette.accentQuery;
   }
 }
+
+/** Maps an insight severity to its badge color (muted accents, no neon). */
+export function severityColor(severity: 'info' | 'warn' | 'critical'): string {
+  switch (severity) {
+    case 'critical':
+      return palette.accentDelete;
+    case 'warn':
+      return palette.accentUpdate;
+    default:
+      return palette.accentQuery;
+  }
+}

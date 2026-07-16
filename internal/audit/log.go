@@ -19,6 +19,7 @@ const (
 	OpExplain    = "explain"
 	OpSample     = "sample"
 	OpStats      = "stats"
+	OpInsights   = "insights"
 )
 
 const retentionDays = 90

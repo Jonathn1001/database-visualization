@@ -135,6 +135,8 @@ type TableStats struct {
 	Inserts        int64  `json:"inserts,omitempty"`
 	Updates        int64  `json:"updates,omitempty"`
 	Deletes        int64  `json:"deletes,omitempty"`
+	SeqScans       int64  `json:"seqScans,omitempty"`
+	IdxScans       int64  `json:"idxScans,omitempty"`
 	LastVacuum     string `json:"lastVacuum,omitempty"`
 	LastAutovacuum string `json:"lastAutovacuum,omitempty"`
 	LastAnalyze    string `json:"lastAnalyze,omitempty"`

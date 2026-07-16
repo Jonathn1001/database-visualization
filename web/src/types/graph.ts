@@ -96,6 +96,8 @@ export interface TableStats {
   inserts?: number;
   updates?: number;
   deletes?: number;
+  seqScans?: number;
+  idxScans?: number;
   lastVacuum?: string;
   lastAutovacuum?: string;
   lastAnalyze?: string;
@@ -169,6 +171,31 @@ export type ErrorCode =
   | 'INTERNAL'
   | 'BAD_REQUEST'
   | 'RATE_LIMITED';
+
+// --- Insights (pg-insights spec, phase 1). Mirrors internal/insights. ---
+
+export type InsightCategory = 'index' | 'health' | 'gaps';
+export type InsightSeverity = 'info' | 'warn' | 'critical';
+
+export interface Finding {
+  category: string;
+  severity: InsightSeverity;
+  nodeId: string;
+  title: string;
+  detail: string;
+  meta?: Record<string, unknown>;
+}
+
+export interface InsightCategoryResult {
+  category: InsightCategory;
+  status: 'ok' | 'unsupported';
+  findings: Finding[];
+  impliedLinks?: Link[];
+}
+
+export interface InsightsResult {
+  categories: InsightCategoryResult[];
+}
 
 // Imperative handle the graph registers so the ActionBar can drive animations without prop-drilling the D3 sim.
 export interface GraphAnimator {

@@ -133,6 +133,7 @@ func NewRouter(cfg Config, log *slog.Logger, mgr *connection.Manager, auditLog a
 				r.Get("/schemas", a.listSchemas)
 				r.With(queryTimeoutMW).Get("/tables/{nodeId}/sample", a.sampleData)
 				r.Get("/tables/{nodeId}/stats", a.tableStats)
+				r.With(timeout(introspectTimeout)).Get("/insights", a.getInsights)
 
 				r.With(timeout(introspectTimeout)).Get("/simulate/cascade/{nodeId}", a.simulateCascade)
 				r.With(timeout(introspectTimeout)).Post("/simulate/crud", a.simulateCRUD)

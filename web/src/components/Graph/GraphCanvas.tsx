@@ -22,6 +22,8 @@ import type {
 } from '@/types/graph';
 import { useGraphStore } from '@/store/graph';
 import { useSelectionStore } from '@/store/selection';
+import { useInsightsStore } from '@/store/insights';
+import { severityByNode } from '@/lib/insights';
 import { palette, crudColor, HOVER_FADE_OPACITY } from '@/lib/colors';
 
 import {
@@ -31,6 +33,7 @@ import {
   type SimNode,
   type SimRefs,
 } from './useForceSimulation';
+import { renderSeverityBadges } from './nodeRenderer';
 import { animateParticle, pulseNode, highlightPath, clearOverlay } from './particles';
 
 const HOVER_FADE_MS = 100;
@@ -92,6 +95,17 @@ export function GraphCanvas({ graph }: { graph: GraphModel }) {
     });
     return unsub;
   }, []);
+
+  // --- Insights overlay: severity badges (imperative, tracks the store). ---
+  const insightsResult = useInsightsStore((s) => s.result);
+  const overlay = useInsightsStore((s) => s.overlay);
+  useEffect(() => {
+    const refs = simRef.current;
+    if (!refs) return;
+    const map = overlay ? severityByNode(insightsResult) : new Map();
+    renderSeverityBadges(refs, map);
+    // Re-run on soft updates too, so freshly-entered nodes get badges.
+  }, [insightsResult, overlay, graph.nodes.length, graph.links.length]);
 
   return (
     <svg
