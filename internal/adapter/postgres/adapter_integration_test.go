@@ -15,6 +15,7 @@ import (
 
 	"github.com/elgnas/dbviz/internal/adapter"
 	"github.com/elgnas/dbviz/internal/adapter/conformance"
+	"github.com/elgnas/dbviz/internal/insights"
 	"github.com/elgnas/dbviz/internal/model"
 )
 
@@ -141,6 +142,59 @@ func TestPostgresExplainPath(t *testing.T) {
 	}
 	assert.True(t, tables["public.users"], "plan touches users")
 	assert.True(t, tables["public.orders"], "plan touches orders")
+}
+
+func TestPostgresInsightsCapabilities(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration test; skipped in -short mode")
+	}
+	_, readerDSN := startPostgres(t)
+	ctx := context.Background()
+
+	a := &Adapter{}
+	require.NoError(t, a.Open(ctx, model.ConnectionConfig{Engine: "postgres", DSN: readerDSN}))
+	defer a.Close()
+
+	// --- IndexStats ---
+	idx, err := a.IndexStats(ctx)
+	require.NoError(t, err)
+	byName := map[string]insights.IndexStat{}
+	for _, s := range idx {
+		byName[s.Index] = s
+	}
+
+	email, ok := byName["idx_users_email"]
+	require.True(t, ok, "idx_users_email present")
+	assert.Equal(t, "public.users", email.NodeID)
+	assert.Equal(t, []string{"email"}, email.Columns)
+	assert.False(t, email.IsUnique)
+
+	dup, ok := byName["idx_users_email_dup"]
+	require.True(t, ok, "duplicate index present")
+	assert.Equal(t, []string{"email"}, dup.Columns)
+
+	pkey, ok := byName["users_pkey"]
+	require.True(t, ok, "users_pkey present")
+	assert.True(t, pkey.IsPrimary)
+	assert.True(t, pkey.IsUnique)
+
+	// --- AllTableStats ---
+	tbl, err := a.AllTableStats(ctx)
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, len(tbl), 9, "bulk stats cover every fixture table")
+	statsByID := map[string]model.TableStats{}
+	for _, s := range tbl {
+		statsByID[s.NodeID] = s
+	}
+	users, ok := statsByID["public.users"]
+	require.True(t, ok, "public.users in bulk stats")
+	assert.Greater(t, users.SizeBytes, int64(0))
+
+	// --- Per-table stats still work and now carry scan counters (>= 0). ---
+	one, err := a.TableStats(ctx, "public.users")
+	require.NoError(t, err)
+	assert.Equal(t, "public.users", one.NodeID)
+	assert.GreaterOrEqual(t, one.SeqScans, int64(0))
 }
 
 func TestPostgresRejectsSuperuser(t *testing.T) {
